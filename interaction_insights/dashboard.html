@@ -767,7 +767,7 @@
       const pageRows = data.page_times || [];
       const paths = data.journey_patterns || [];
       const timeBit = pageRows.length
-        ? "The most total engagement is on " + pageRows[0].page_path + ": " + secs(pageRows[0].avg_engagement_seconds) + " average across " + num(pageRows[0].views) + " views."
+        ? "Most engagement time is on " + pageRows[0].page_path + ": " + secs(pageRows[0].avg_engagement_seconds) + " average across " + num(pageRows[0].views) + " views."
         : "No page-level engagement time in this count.";
       const pathBit = paths.length
         ? " The most common opening is " + paths[0].path + " (" + num(paths[0].users) + " sessions)."
