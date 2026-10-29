@@ -1,0 +1,16 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.env
+.env.*
+!.env.example
+data/*
+!data/.gitkeep
+keys/
+*-credentials*.json
+service-account*.json
+.DS_Store
+agent-tools/

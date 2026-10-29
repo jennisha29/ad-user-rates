@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interaction Insights</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231c1712'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='14' fill='%23f6efe4' font-family='Georgia'%3EII%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,560;0,9..144,650;1,9..144,560&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #efe6d6;
+      --paper-2: #f7f1e6;
+      --ink: #1c1712;
+      --muted: #6f655a;
+      --line: #ddcfc0;
+      --card: #fffaf3;
+      --orange: #d24b1e;
+      --orange-soft: #f3d2c3;
+      --green: #1d6b4a;
+      --green-soft: #d7ebe1;
+      --blue: #1d3f66;
+      --blue-soft: #d5e2ef;
+      --gold: #8d5a12;
+      --gold-soft: #f3e4c4;
+      --shadow: 0 1px 0 rgba(28, 23, 18, 0.04), 0 18px 40px rgba(90, 52, 24, 0.06);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #f6e2c8 0%, transparent 55%),
+        linear-gradient(180deg, #f3ecdf 0%, var(--paper) 220px);
+      font-family: Outfit, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.45;
+    }
+    button, input { font: inherit; }
+    h1, h2, h3 { font-family: Fraunces, Georgia, serif; font-weight: 560; letter-spacing: -0.03em; margin: 0; }
+    p { margin: 0; }
+    .wrap { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+    header.top {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-end;
+      padding: 28px 0 18px;
+      border-bottom: 1px solid var(--ink);
+      box-shadow: 0 1px 0 #fff;
+    }
+    .brand { display: flex; gap: 14px; align-items: center; }
+    .mark {
+      width: 46px; height: 46px; border-radius: 8px;
+      background: var(--ink); color: #f6efe4;
+      display: grid; place-items: center;
+      font-family: Fraunces, Georgia, serif;
+      font-weight: 650;
+    }
+    .kicker { color: var(--orange); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 600; }
+    h1 { font-size: clamp(32px, 4vw, 48px); line-height: 0.95; }
+    .lede { max-width: 46ch; color: var(--muted); margin-top: 8px; }
+    .pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .pill {
+      border: 1px solid var(--line);
+      background: var(--card);
+      border-radius: 999px;
+      padding: 8px 12px;
+      min-width: 180px;
+    }
+    .pill strong { display: block; font-size: 13px; }
+    .pill span { display: block; color: var(--muted); font-size: 12px; max-width: 32ch; }
+    .pill.ok { border-color: #9dccb6; background: var(--green-soft); }
+    .pill.warn { border-color: #e2b48a; background: var(--gold-soft); }
+    .pill.idle { background: transparent; }
+    .banner {
+      margin: 16px auto 0;
+      background: #2a211b;
+      color: #f6efe4;
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+    }
+    .banner p { max-width: 78ch; }
+    .banner[hidden] { display: none; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+    button.action {
+      border: 0;
+      background: #f3e6d4;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    button.action.primary { background: var(--orange); color: white; }
+    button.action:hover { filter: brightness(0.97); }
+    .live-head, .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .status-line { color: var(--muted); font-size: 14px; }
+    .progress {
+      height: 6px; background: #e5d9c8; border-radius: 99px; overflow: hidden; margin: 8px 0 16px;
+    }
+    .progress > div { height: 100%; width: 0; background: var(--orange); }
+    .scorecards {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+    .score {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 14px 14px 12px;
+      box-shadow: var(--shadow);
+      min-height: 112px;
+    }
+    .score .label { color: var(--muted); font-size: 13px; }
+    .score .value { font-family: Fraunces, Georgia, serif; font-size: 40px; line-height: 1; margin: 8px 0 4px; }
+    .score .hint { color: var(--muted); font-size: 12px; }
+    .score.click .value { color: var(--green); }
+    .score.ignore .value { color: var(--gold); }
+    .score.convert .value { color: var(--blue); }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card h3 { font-size: 22px; margin-bottom: 4px; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+    svg.chart { width: 100%; height: 180px; display: block; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+    .bar-row { display: grid; grid-template-columns: 92px 1fr auto; gap: 8px; align-items: center; margin: 7px 0; font-size: 13px; }
+    .bar-row b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+    .track { height: 8px; background: #f0e6d8; border-radius: 99px; overflow: hidden; }
+    .track > i { display: block; height: 100%; background: var(--blue); border-radius: 99px; }
+    .track.gold > i { background: var(--gold); }
+    .questions { margin-top: 28px; display: grid; gap: 14px; }
+    article.q { background: transparent; }
+    .q-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px; }
+    .eyebrow {
+      font-size: 13px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--orange);
+      font-weight: 600;
+    }
+    .rates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .rate {
+      padding: 12px;
+      border-radius: 14px;
+      background: var(--paper-2);
+    }
+    .rate .value { font-family: Fraunces, Georgia, serif; font-size: 34px; line-height: 1; }
+    .path {
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0;
+    }
+    .chip {
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: var(--paper);
+      font-size: 12px;
+    }
+    .chip.page_view, .chip.impression { background: #ece7df; }
+    .chip.click, .chip.ad_click { background: var(--green-soft); color: var(--green); }
+    .chip.ad_ignore, .chip.ignore { background: var(--gold-soft); color: var(--gold); }
+    .chip.purchase, .chip.sign_up, .chip.subscribe, .chip.ad_free_subscribe, .chip.conversion { background: var(--blue-soft); color: var(--blue); }
+    .chip.ad_close { background: #f3d2c3; color: var(--orange); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .feed { display: grid; gap: 6px; max-height: 280px; overflow: auto; }
+    .feed div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+    .matrix { margin: 8px 0 28px; }
+    .matrix table { background: var(--card); border-radius: 16px; overflow: hidden; }
+    footer {
+      padding: 8px 0 36px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty { color: var(--muted); font-size: 14px; }
+    @media (max-width: 900px) {
+      header.top, .layout, .split, .q-grid, .scorecards, .rates { grid-template-columns: 1fr; display: grid; }
+      .live-head, .section-head { flex-direction: column; align-items: flex-start; }
+      .scorecards { grid-template-columns: 1fr 1fr; }
+      header.top { align-items: stretch; }
+      .pills { justify-content: flex-start; }
+      .banner { flex-direction: column; align-items: stretch; }
+      .pill { min-width: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="mark">II</div>
+        <div>
+          <div class="kicker">Product analytics</div>
+          <h1>Interaction Insights</h1>
+          <p class="lede">How people use the product, from the GA4 backup: reaction rates, time on page, journeys, session endings, and power users.</p>
+        </div>
+      </div>
+      <div class="pills">
+        <div class="pill idle" id="bq-pill"><strong>BigQuery</strong><span id="bq-detail">Checking the warehouse…</span></div>
+        <div class="pill idle" id="ga-pill"><strong>Google Analytics</strong><span id="ga-detail">Checking the property…</span></div>
+      </div>
+    </header>
+    <div class="banner" id="banner" hidden>
+      <p id="banner-text"></p>
+      <div class="controls">
+        <button class="action primary" id="read-cloud" type="button">Read BigQuery and GA4</button>
+        <button class="action" id="preview" type="button">Preview sample</button>
+        <button class="action" id="pause" type="button">Pause</button>
+        <button class="action" id="restart" type="button">Replay</button>
+      </div>
+    </div>
+    <main>
+      <section style="margin-top: 18px;">
+        <div class="live-head">
+          <h2>Live window</h2>
+          <div class="status-line" id="status-line">Reading BigQuery and Google Analytics…</div>
+        </div>
+        <div class="progress" aria-hidden="true"><div id="progress"></div></div>
+        <div class="scorecards">
+          <div class="score"><div class="label">Pages</div><div class="value" id="saw">—</div><div class="hint">Page views, last 15 minutes</div></div>
+          <div class="score click"><div class="label">Clicked</div><div class="value" id="clicked">—</div><div class="hint" id="ctr-hint">click and ad_click</div></div>
+          <div class="score ignore"><div class="label">Ad ignores</div><div class="value" id="ignored">—</div><div class="hint">ad_ignore events</div></div>
+          <div class="score convert"><div class="label">Converted</div><div class="value" id="converted">—</div><div class="hint">purchase, sign_up, subscribe</div></div>
+          <div class="score"><div class="label">Click rate</div><div class="value" id="ctr">—</div><div class="hint">Clicks ÷ page views</div></div>
+        </div>
+        <div class="layout">
+          <div class="card">
+            <h3>Events per minute</h3>
+            <p class="sub" id="minute-caption">Page views and clicks, by minute of event time.</p>
+            <div id="minute-chart"></div>
+          </div>
+          <div class="card">
+            <h3>Arriving now</h3>
+            <p class="sub">Newest events in this run.</p>
+            <div class="feed" id="feed"></div>
+          </div>
+        </div>
+        <div class="split">
+          <div class="card">
+            <h3>Source / campaign</h3>
+            <p class="sub">Event volume by traffic source or campaign. The number on the right is click rate.</p>
+            <div id="campaigns"></div>
+          </div>
+          <div class="card">
+            <h3>Fatigue</h3>
+            <p class="sub">How often a click follows the 1st, 2nd, 3rd… page view in the same session.</p>
+            <div id="fatigue"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="questions">
+        <article class="q" id="q1">
+          <div class="eyebrow">Question 1</div>
+          <div class="section-head"><h2>How do users react?</h2></div>
+          <div class="q-grid">
+            <div class="card">
+              <h3>Rates</h3>
+              <p class="sub" id="rate-note">Clicks, ad ignores, and conversions from the GA4 events.</p>
+              <div class="rates">
+                <div class="rate"><div class="label">Click rate</div><div class="value" id="click-rate">—</div><div class="hint" id="click-count"></div></div>
+                <div class="rate"><div class="label">Ignore rate</div><div class="value" id="ignore-rate">—</div><div class="hint" id="ignore-count"></div></div>
+                <div class="rate"><div class="label">Convert proxy</div><div class="value" id="convert-rate">—</div><div class="hint" id="convert-count"></div></div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>From Google Analytics</h3>
+              <p class="sub">Event names in this run. ad_close, app_reopen, and session_start are counted when the export contains them.</p>
+              <div id="ga-events"></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="q" id="q2">
+          <div class="eyebrow">Question 2</div>
+          <div class="section-head"><h2>Time on page, and the journey</h2></div>
+          <div class="q-grid">
+            <div class="card">
+              <h3>Session journey</h3>
+              <p class="sub">Most common first four steps in a session. Page views are shown as the page path.</p>
+              <div id="patterns"></div>
+              <div id="featured"></div>
+            </div>
+            <div class="card">
+              <h3>Time on page</h3>
+              <p class="sub" id="page-note">engagement_time_msec divided by page views, from the GA4 backup.</p>
+              <div id="pages"></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="q" id="q3">
+          <div class="eyebrow">Question 3</div>
+          <div class="section-head"><h2>What causes sessions to end?</h2></div>
+          <div class="q-grid">
+            <div class="card">
+              <h3>Last event in the session</h3>
+              <p class="sub" id="break-note">The last event in each session. A 30-minute gap is a break between events.</p>
+              <div id="endings"></div>
+            </div>
+            <div class="card">
+              <h3>Quiet gaps</h3>
+              <p class="sub">Gaps of 30 minutes or more between one person’s events.</p>
+              <div id="breaks"></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="q" id="q4">
+          <div class="eyebrow">Question 4</div>
+          <div class="section-head"><h2>How do power users use the product?</h2></div>
+          <div class="q-grid">
+            <div class="card">
+              <h3>BigQuery heuristic</h3>
+              <p class="sub" id="power-note">Many events, several sessions, many page views, or a conversion.</p>
+              <div id="power"></div>
+            </div>
+            <div class="card">
+              <h3>Returning vs new</h3>
+              <p class="sub">New versus returning from the GA4 Data API, once the property is connected. A Power users audience in Explore is the fuller cut.</p>
+              <div id="returning"></div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="matrix card">
+        <h3>Where each answer lives</h3>
+        <p class="sub">BigQuery holds the loaded GA4 backup. The Data API is an optional live check on the same property.</p>
+        <table>
+          <thead><tr><th>Question</th><th>BigQuery view</th><th>In the export</th></tr></thead>
+          <tbody>
+            <tr><td>Click, ignore, convert rates</td><td>v_reaction_rates</td><td>click, ad_click, ad_ignore, purchase, sign_up</td></tr>
+            <tr><td>Close ad, reopen</td><td>v_event_counts</td><td>ad_close, app_reopen, session_start</td></tr>
+            <tr><td>Time on page</td><td>v_page_time</td><td>engagement_time_msec and page path</td></tr>
+            <tr><td>Journey</td><td>v_journey_patterns</td><td>First four steps in a session</td></tr>
+            <tr><td>Why the session ended</td><td>v_session_end_proxy</td><td>Last event, plus 30-minute gaps</td></tr>
+            <tr><td>Power users</td><td>v_power_users</td><td>Events, sessions, page views, conversions</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <footer>
+      <p>Source: gs://goods-ga4-backup_analysis events-000000000000.parquet through events-000000000049.parquet. Loaded to BigQuery as ga4_events. Do not commit the service-account key or a filled-in .env.</p>
+    </footer>
+  </div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function num(value) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
+      return new Intl.NumberFormat("en-US").format(value);
+    }
+    function pct(value) {
+      if (value === null || value === undefined) return "—";
+      return (Number(value) * 100).toFixed(1) + "%";
+    }
+    function secs(value) {
+      if (value === null || value === undefined) return "—";
+      const n = Number(value);
+      if (n < 90) return Math.round(n) + "s";
+      return Math.round(n / 60) + "m";
+    }
+    function clock(iso) {
+      if (!iso) return "";
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return String(iso);
+      return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+    function h(tag, props, kids) {
+      const node = document.createElement(tag);
+      Object.entries(props || {}).forEach(([key, value]) => {
+        if (key === "class") node.className = value;
+        else if (key === "text") node.textContent = value == null ? "" : String(value);
+        else if (value != null) node.setAttribute(key, String(value));
+      });
+      (kids || []).forEach((kid) => node.append(kid));
+      return node;
+    }
+    function clear(node) { node.replaceChildren(); }
+    function emptyNote(node, text) {
+      clear(node);
+      node.append(h("p", { class: "empty", text }));
+    }
+
+    function pill(node, conn) {
+      node.classList.remove("ok", "warn", "idle");
+      if (conn && conn.ok) node.classList.add("ok");
+      else if (conn && conn.configured) node.classList.add("warn");
+      else node.classList.add("idle");
+    }
+
+    function bars(node, rows, labelKey, valueKey, max, gold) {
+      clear(node);
+      if (!rows || !rows.length) {
+        emptyNote(node, "No rows yet.");
+        return;
+      }
+      rows.forEach((row) => {
+        const value = Number(row[valueKey] || 0);
+        const width = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
+        const track = h("div", { class: gold ? "track gold" : "track" }, [
+          h("i", { style: "width:" + width + "%" })
+        ]);
+        node.append(h("div", { class: "bar-row" }, [
+          h("b", { text: row[labelKey] }),
+          track,
+          h("span", { text: gold ? pct(row.ctr) : num(value) })
+        ]));
+      });
+    }
+
+    function drawMinutes(rows) {
+      const host = $("minute-chart");
+      clear(host);
+      if (!rows || !rows.length) {
+        emptyNote(host, "The minute chart fills as events land.");
+        return;
+      }
+      const width = 640;
+      const height = 180;
+      const pad = 16;
+      const max = Math.max(...rows.map((row) => row.impressions), 1);
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.setAttribute("class", "chart");
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", "Page views and clicks per minute");
+      const step = rows.length === 1 ? 0 : (width - pad * 2) / (rows.length - 1);
+      function points(key) {
+        return rows.map((row, index) => {
+          const x = pad + index * step;
+          const y = height - pad - ((row[key] || 0) / max) * (height - pad * 2);
+          return [x, y];
+        });
+      }
+      function poly(key, color) {
+        const coords = points(key);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        line.setAttribute("fill", "none");
+        line.setAttribute("stroke", color);
+        line.setAttribute("stroke-width", "2.5");
+        line.setAttribute("points", coords.map((pair) => pair.join(",")).join(" "));
+        svg.append(line);
+        coords.forEach((pair) => {
+          const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          dot.setAttribute("cx", pair[0]);
+          dot.setAttribute("cy", pair[1]);
+          dot.setAttribute("r", "3");
+          dot.setAttribute("fill", color);
+          svg.append(dot);
+        });
+      }
+      poly("impressions", "#1c1712");
+      poly("clicks", "#1d6b4a");
+      host.append(svg);
+      const caption = rows.length === 1
+        ? "One minute so far. " + num(rows[0].impressions) + " page views, " + num(rows[0].clicks) + " clicks."
+        : rows.length + " minutes. Dark line is page views, green is clicks.";
+      $("minute-caption").textContent = caption;
+    }
+
+    function paint(data) {
+      const bq = data.connections.bigquery;
+      const ga = data.connections.ga4;
+      pill($("bq-pill"), bq);
+      pill($("ga-pill"), ga);
+      $("bq-detail").textContent = bq.detail || "BigQuery";
+      $("ga-detail").textContent = ga.detail || "Google Analytics";
+      const banner = $("banner");
+      if (data.banner) {
+        banner.hidden = false;
+        $("banner-text").textContent = data.banner;
+      } else {
+        banner.hidden = true;
+      }
+      const progress = data.progress || {};
+      const ratio = progress.rows_total ? Math.min(1, progress.rows_done / progress.rows_total) : 0;
+      $("progress").style.width = Math.round(ratio * 100) + "%";
+      const modeLabel = data.mode === "cloud" ? "BigQuery" : (data.row_source === "ga4-parquet" ? "GA4 backup" : "Stand-in preview");
+      $("status-line").textContent = modeLabel + " · " + (data.status || "") +
+        " · " + num(progress.rows_done) + " / " + num(progress.rows_total) +
+        (progress.speed ? " · " + progress.speed + " rows/s" : "");
+      $("pause").textContent = data.status === "paused" ? "Resume" : "Pause";
+      $("pause").disabled = data.mode === "cloud";
+
+      const live = data.live_15min || {};
+      $("saw").textContent = num(live.saw);
+      $("clicked").textContent = num(live.clicked);
+      $("ignored").textContent = num(live.ignored);
+      $("converted").textContent = num(live.converted_proxy);
+      $("ctr").textContent = pct(live.ctr);
+
+      drawMinutes(data.funnel_minute || []);
+      const feed = $("feed");
+      clear(feed);
+      const recent = data.recent_events || [];
+      if (!recent.length) emptyNote(feed, "Events show up here as the replay moves.");
+      recent.forEach((event) => {
+        feed.append(h("div", {}, [
+          h("span", { class: "chip " + event.event_type, text: event.event_type }),
+          h("span", { text: event.campaign }),
+          h("span", { text: clock(event.event_time) })
+        ]));
+      });
+
+      const campaigns = data.campaign_funnel || [];
+      const maxImps = campaigns.length ? Math.max(...campaigns.map((row) => row.impressions)) : 1;
+      const campaignHost = $("campaigns");
+      clear(campaignHost);
+      if (!campaigns.length) emptyNote(campaignHost, "No sources in this slice yet.");
+      campaigns.slice(0, 8).forEach((row) => {
+        const width = maxImps > 0 ? Math.max(2, Math.round((row.impressions / maxImps) * 100)) : 0;
+        campaignHost.append(h("div", { class: "bar-row" }, [
+          h("b", { text: row.campaign }),
+          h("div", { class: "track" }, [h("i", { style: "width:" + width + "%" })]),
+          h("span", { text: pct(row.ctr) })
+        ]));
+      });
+      bars($("fatigue"), (data.fatigue || []).filter((row) => row.impressions || row.bucket_order <= 6), "exposure_bucket", "ctr", 1, true);
+
+      const rates = data.reaction_rates || {};
+      $("click-rate").textContent = pct(rates.click_rate);
+      $("ignore-rate").textContent = pct(rates.ignore_rate);
+      $("convert-rate").textContent = pct(rates.conversion_rate_proxy);
+      $("click-count").textContent = num(rates.clicks) + " clicks / " + num(rates.page_views || rates.impressions) + " page views";
+      $("ignore-count").textContent = num(rates.ignores) + " ad_ignore · " + num(rates.ad_closes) + " ad_close · " + num(rates.reopens) + " reopen";
+      $("convert-count").textContent = num(rates.conversions_proxy) + " conversions / " + num(rates.sessions) + " sessions";
+      if (data.definitions) {
+        $("rate-note").textContent = data.definitions.conversion_rate || data.definitions.click_rate;
+        $("power-note").textContent = data.definitions.power_user + " Score: " + data.definitions.power_score;
+        $("break-note").textContent = data.definitions.session_break;
+        if ($("page-note") && data.definitions.time_on_page) $("page-note").textContent = data.definitions.time_on_page;
+      }
+
+      const patterns = $("patterns");
+      clear(patterns);
+      const paths = data.journey_patterns || [];
+      if (!paths.length) emptyNote(patterns, "Paths appear once a few users have more than one event.");
+      const pathMax = Math.max(...paths.map((row) => row.users), 1);
+      paths.slice(0, 6).forEach((row) => {
+        const chips = h("div", { class: "path" });
+        String(row.path || "").split(" > ").forEach((part, index, all) => {
+          if (!part) return;
+          chips.append(h("span", { class: "chip " + part, text: part }));
+          if (index < all.length - 1) chips.append(h("span", { text: "→" }));
+        });
+        patterns.append(h("div", {}, [
+          chips,
+          h("div", { class: "track" }, [h("i", { style: "width:" + Math.round((row.users / pathMax) * 100) + "%" })]),
+          h("p", { class: "sub", text: num(row.users) + " users" })
+        ]));
+      });
+
+      const featured = $("featured");
+      clear(featured);
+      const journey = data.featured_journey;
+      if (journey && journey.steps) {
+        featured.append(h("p", { class: "sub", text: "Highest power score, user " + journey.uid }));
+        const line = h("div", { class: "path" });
+        journey.steps.slice(0, 10).forEach((step) => {
+          const gap = step.seconds_since_prev == null ? "" : " +" + secs(step.seconds_since_prev);
+          line.append(h("span", { class: "chip " + step.event_type, text: step.event_type + gap }));
+        });
+        featured.append(line);
+      }
+
+      const pages = $("pages");
+      clear(pages);
+      const pageRows = (data.page_times && data.page_times.length) ? data.page_times : ((data.ga4 && data.ga4.pages) || []);
+      if (!pageRows.length) {
+        const reason = (data.ga4 && data.ga4.errors && data.ga4.errors[0]) || "Connect GA4_PROPERTY_ID to read engagement time.";
+        emptyNote(pages, reason);
+      } else {
+        const table = h("table", {}, [
+          h("thead", {}, [h("tr", {}, [
+            h("th", { text: "Page" }),
+            h("th", { class: "num", text: "Avg time" }),
+            h("th", { class: "num", text: "Views" })
+          ])])
+        ]);
+        const body = h("tbody");
+        pageRows.forEach((row) => {
+          body.append(h("tr", {}, [
+            h("td", { text: row.page_path }),
+            h("td", { class: "num", text: secs(row.avg_engagement_seconds) }),
+            h("td", { class: "num", text: num(row.views) })
+          ]));
+        });
+        table.append(body);
+        pages.append(table);
+      }
+
+      const endings = $("endings");
+      clear(endings);
+      const ends = data.session_end_proxy || [];
+      const endMax = Math.max(...ends.map((row) => row.users), 1);
+      if (!ends.length) emptyNote(endings, "No users in this run yet.");
+      ends.forEach((row) => {
+        endings.append(h("div", { class: "bar-row" }, [
+          h("b", { text: row.last_event_type }),
+          h("div", { class: "track" }, [h("i", { style: "width:" + Math.round((row.users / endMax) * 100) + "%" })]),
+          h("span", { text: num(row.users) })
+        ]));
+      });
+
+      const breaks = $("breaks");
+      clear(breaks);
+      const gapInfo = data.session_breaks || { gaps: 0, examples: [] };
+      breaks.append(h("p", { text: num(gapInfo.gaps) + " gaps of at least 30 minutes." }));
+      (gapInfo.examples || []).slice(0, 5).forEach((row) => {
+        breaks.append(h("p", {
+          class: "sub",
+          text: row.uid + " · " + row.prev_event_type + " → " + row.event_type + " · " + secs(row.gap_seconds)
+        }));
+      });
+
+      const powerHost = $("power");
+      clear(powerHost);
+      const power = data.power_users || [];
+      if (!power.length) emptyNote(powerHost, "No power users in the rows replayed so far.");
+      else {
+        const table = h("table");
+        table.append(h("thead", {}, [h("tr", {}, [
+          h("th", { text: "User" }),
+          h("th", { class: "num", text: "Events" }),
+          h("th", { class: "num", text: "Sessions" }),
+          h("th", { class: "num", text: "Clicks" }),
+          h("th", { class: "num", text: "Pages" }),
+          h("th", { class: "num", text: "Score" })
+        ])]));
+        const body = h("tbody");
+        power.slice(0, 8).forEach((row) => {
+          body.append(h("tr", {}, [
+            h("td", { text: row.uid }),
+            h("td", { class: "num", text: num(row.events != null ? row.events : row.impressions) }),
+            h("td", { class: "num", text: num(row.sessions != null ? row.sessions : row.campaigns) }),
+            h("td", { class: "num", text: num(row.clicks) }),
+            h("td", { class: "num", text: num(row.page_views != null ? row.page_views : row.conversions) }),
+            h("td", { class: "num", text: num(row.power_score) })
+          ]));
+        });
+        table.append(body);
+        powerHost.append(table);
+        powerHost.append(h("p", { class: "sub", text: num(data.power_user_count) + " users match the heuristic." }));
+      }
+
+      const returning = $("returning");
+      clear(returning);
+      const segments = (data.ga4 && data.ga4.audiences_proxy) || [];
+      if (!segments.length) {
+        emptyNote(returning, "GA4 new vs returning appears here after the property is connected.");
+      } else {
+        segments.forEach((row) => {
+          returning.append(h("p", {
+            text: (row.segment || "unknown") + " · " + num(row.sessions) + " sessions · " + num(row.event_count) + " events · " + secs(row.avg_session_seconds)
+          }));
+        });
+      }
+
+      const gaEvents = $("ga-events");
+      clear(gaEvents);
+      const fromBackup = (data.event_counts || []).map((row) => ({
+        event_name: row.event_name,
+        event_count: row.events || row.event_count
+      }));
+      const realtime = (data.ga4 && data.ga4.realtime_events) || [];
+      const week = (data.ga4 && data.ga4.events_7d) || [];
+      const events = fromBackup.length ? fromBackup : (realtime.length ? realtime : week);
+      if (!events.length) {
+        const reason = (data.ga4 && data.ga4.errors && data.ga4.errors[0]) || "No GA4 events loaded.";
+        emptyNote(gaEvents, reason);
+      } else {
+        events.slice(0, 8).forEach((row) => {
+          gaEvents.append(h("div", { class: "bar-row" }, [
+            h("b", { text: row.event_name }),
+            h("div", { class: "track" }),
+            h("span", { text: num(row.event_count) })
+          ]));
+        });
+      }
+    }
+
+    async function control(action) {
+      await fetch("/api/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action })
+      });
+      await refresh();
+    }
+
+    async function refresh() {
+      const response = await fetch("/api/snapshot");
+      if (!response.ok) throw new Error("Snapshot failed");
+      paint(await response.json());
+    }
+
+    $("read-cloud").addEventListener("click", () => control("cloud"));
+    $("preview").addEventListener("click", () => control("preview"));
+    $("restart").addEventListener("click", () => control("restart"));
+    $("pause").addEventListener("click", async () => {
+      const label = $("pause").textContent;
+      await control(label === "Resume" ? "resume" : "pause");
+    });
+
+    refresh().catch((error) => {
+      $("status-line").textContent = "The dashboard could not read /api/snapshot.";
+      $("banner").hidden = false;
+      $("banner-text").textContent = String(error);
+    });
+    setInterval(() => {
+      refresh().catch(() => {});
+    }, 1000);
+  </script>
+</body>
+</html>
