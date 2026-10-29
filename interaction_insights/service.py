@@ -191,7 +191,8 @@ class DashboardService:
             if self._cloud_has_data():
                 self.mode = "cloud"
                 return
-        if self._read_report_file():
+        explicit_report = self.report_path is not None
+        if (explicit_report or self.requested_source != "local") and self._read_report_file():
             self.mode = "report"
             return
         self.mode = "local"
@@ -322,11 +323,16 @@ class DashboardService:
         events = int(coverage.get("events") or (report.get("reaction_rates") or {}).get("events") or 0)
         banner = _report_banner(report)
         connections = _connections(self.settings, {"bigquery": "", "ga4": ""}, None)
+        detail = (
+            f"GA4 property {coverage.get('property_id')} · {events:,} events"
+            if coverage.get("property_id")
+            else f"GA4 backup report · {events:,} events"
+        )
         connections["ga4"] = {
             "configured": True,
             "ok": True,
-            "detail": f"GA4 backup report · {events} events",
-            "property_id": self.settings.ga4_property_id,
+            "detail": detail,
+            "property_id": coverage.get("property_id") or self.settings.ga4_property_id,
         }
         if not self.settings.bq_configured:
             connections["bigquery"]["detail"] = "Not connected. This page is the parquet report."
@@ -427,6 +433,12 @@ def _report_banner(report: dict) -> str:
     extra = ""
     if missing:
         extra = " Not in this export: " + ", ".join(missing) + "."
+    if coverage.get("warehouse"):
+        return (
+            f"BigQuery {coverage['warehouse']}: {events:,} events, {span}. "
+            + (coverage.get("scope_label") or "GA4 export.")
+            + extra
+        )
     return (
         f"Full count of the GA4 backup parquet: {events} events, {span}. "
         "Counted from the local parquet files. Not a live GA4 Data API call and not a BigQuery query."

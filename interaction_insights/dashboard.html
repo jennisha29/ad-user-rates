@@ -244,11 +244,11 @@
         </div>
         <div class="progress" aria-hidden="true"><div id="progress"></div></div>
         <div class="scorecards">
-          <div class="score"><div class="label">Pages</div><div class="value" id="saw">—</div><div class="hint">Page views, last 15 minutes</div></div>
-          <div class="score click"><div class="label">Clicked</div><div class="value" id="clicked">—</div><div class="hint" id="ctr-hint">click and ad_click</div></div>
-          <div class="score ignore"><div class="label">Ad ignores</div><div class="value" id="ignored">—</div><div class="hint">ad_ignore events</div></div>
-          <div class="score convert"><div class="label">Converted</div><div class="value" id="converted">—</div><div class="hint">purchase, sign_up, subscribe</div></div>
-          <div class="score"><div class="label">Click rate</div><div class="value" id="ctr">—</div><div class="hint">Clicks ÷ page views</div></div>
+          <div class="score"><div class="label" id="saw-label">Pages</div><div class="value" id="saw">—</div><div class="hint" id="saw-hint">Page views, last 15 minutes</div></div>
+          <div class="score click"><div class="label" id="clicked-label">Clicked</div><div class="value" id="clicked">—</div><div class="hint" id="clicked-hint">click and ad_click</div></div>
+          <div class="score ignore"><div class="label" id="ignored-label">Ad ignores</div><div class="value" id="ignored">—</div><div class="hint" id="ignored-hint">ad_ignore events</div></div>
+          <div class="score convert"><div class="label" id="converted-label">Converted</div><div class="value" id="converted">—</div><div class="hint" id="converted-hint">purchase, sign_up, subscribe</div></div>
+          <div class="score"><div class="label">Click rate</div><div class="value" id="ctr">—</div><div class="hint" id="ctr-hint">Clicks ÷ page views</div></div>
         </div>
         <div class="layout">
           <div class="card">
@@ -570,7 +570,9 @@
       $("convert-count").textContent = num(rates.conversions_proxy) + " conversions / " + num(rates.sessions) + " sessions";
       const sourceLine = $("source-line");
       if (sourceLine) {
-        if (data.row_source === "ga4-parquet-report") {
+        if (data.coverage && data.coverage.warehouse) {
+          sourceLine.textContent = "BigQuery " + data.coverage.warehouse + ". " + (data.coverage.scope_label || "");
+        } else if (data.row_source === "ga4-parquet-report") {
           sourceLine.textContent = "Full count of the GA4 backup parquet. Not a live GA4 report and not a BigQuery query.";
         } else if (data.row_source === "ga4-parquet") {
           sourceLine.textContent = "A slice of the GA4 backup parquet. Not a live GA4 report and not a BigQuery query.";
@@ -581,11 +583,16 @@
         }
       }
       const missing = (data.coverage && data.coverage.missing_event_names) || [];
-      let rateNote = "Click ÷ page views. No click = a page view with no click before the next page. Ad ignore = ad_ignore ÷ page views. Close ad = ad_close ÷ sessions. Close then reopen = users who close an ad and later start another session. Convert = conversions ÷ sessions.";
-      if (missing.length) {
+      const labels = data.labels || {};
+      let rateNote = labels.rate_note || "Click ÷ page views. No click = a page view with no click before the next page. Ad ignore = ad_ignore ÷ page views. Close ad = ad_close ÷ sessions. Close then reopen = users who close an ad and later start another session. Convert = conversions ÷ sessions.";
+      if (!labels.rate_note && missing.length) {
         rateNote += " Not in this export: " + missing.join(", ") + ". A zero on those names means the event was not collected.";
       }
       $("rate-note").textContent = rateNote;
+      Object.entries(labels.score || {}).forEach(([id, text]) => {
+        const node = $(id);
+        if (node) node.textContent = text;
+      });
       if (data.definitions) {
         $("power-note").textContent = data.definitions.power_user + " Score: " + data.definitions.power_score;
         $("break-note").textContent = data.definitions.session_break + " GA4 does not send session_end; the last event is the cause we can see.";
@@ -608,7 +615,7 @@
         patterns.append(h("div", {}, [
           chips,
           h("div", { class: "track" }, [h("i", { style: "width:" + Math.round((row.users / pathMax) * 100) + "%" })]),
-          h("p", { class: "sub", text: num(row.users) + " users" })
+          h("p", { class: "sub", text: num(row.users) + " " + ((data.labels && data.labels.path_unit) || "users") })
         ]));
       });
 
@@ -678,8 +685,12 @@
       const powerHost = $("power");
       clear(powerHost);
       const power = data.power_users || [];
-      if (!power.length) emptyNote(powerHost, "No power users in the rows replayed so far.");
-      else {
+      const cohort = data.power_summary;
+      if (cohort && cohort.note) {
+        powerHost.append(h("p", { text: cohort.note }));
+      }
+      if (!power.length && !(cohort && cohort.note)) emptyNote(powerHost, "No power users in the rows replayed so far.");
+      else if (power.length) {
         const table = h("table");
         table.append(h("thead", {}, [h("tr", {}, [
           h("th", { text: "User" }),
@@ -744,6 +755,14 @@
     }
 
     function fillAnswers(data) {
+      const story = data.narrative || {};
+      if (story.q1 && story.q2 && story.q3 && story.q4) {
+        $("q1-answer").textContent = story.q1;
+        $("q2-answer").textContent = story.q2;
+        $("q3-answer").textContent = story.q3;
+        $("q4-answer").textContent = story.q4;
+        return;
+      }
       const rates = data.reaction_rates || {};
       const missing = new Set((data.coverage && data.coverage.missing_event_names) || []);
       const q1 = [
