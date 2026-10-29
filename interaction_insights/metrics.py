@@ -84,6 +84,13 @@ def blank_metrics() -> dict:
             "events": 0,
             "click_rate": None,
             "ignore_rate": None,
+            "no_click_pages": 0,
+            "no_click_rate": None,
+            "close_rate": None,
+            "reopen_rate": None,
+            "close_reopen_users": 0,
+            "users_with_close": 0,
+            "close_reopen_rate": None,
             "conversion_rate_proxy": None,
         },
         "journey_patterns": [],
@@ -100,7 +107,14 @@ def blank_metrics() -> dict:
             "event_time_max": None,
         },
         "definitions": DEFINITIONS,
+        "event_names": [],
     }
+
+
+def _cap(rows: list, limit: int | None) -> list:
+    if not limit or limit <= 0:
+        return rows
+    return rows[:limit]
 
 
 def _label(event: Ga4Event) -> str:
@@ -113,7 +127,19 @@ def _session_key(event: Ga4Event) -> tuple[str, str]:
     return (event.user_pseudo_id, event.session_id or "")
 
 
-def compute_snapshot(events: list[Ga4Event]) -> dict:
+def compute_snapshot(
+    events: list[Ga4Event],
+    *,
+    pattern_limit: int | None = 20,
+    power_limit: int | None = 50,
+    page_limit: int | None = 12,
+    campaign_limit: int | None = 20,
+    event_limit: int | None = 12,
+    break_example_limit: int | None = 8,
+    recent_limit: int | None = 12,
+    include_journeys: bool = False,
+    include_tail: bool = False,
+) -> dict:
     snapshot = blank_metrics()
     if not events:
         return snapshot
@@ -127,7 +153,7 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
         by_session[_session_key(event)].append(event)
         name_counts[event.event_name] += 1
 
-    page_views = clicks = ignores = closes = reopens = conversions = 0
+    page_views = clicks = ignores = closes = reopens = conversions = no_click_pages = 0
     minute_counts: dict[str, dict[str, int]] = defaultdict(
         lambda: {"impressions": 0, "clicks": 0, "ignores": 0, "conversions": 0}
     )
@@ -168,9 +194,23 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
         if event.event_name == "user_engagement" and event.page_path:
             page_engagement[event.page_path]["engagement_msec"] += event.engagement_time_msec
 
+    users_with_close = 0
+    close_reopen_users = 0
     for uid, user_events in by_user.items():
         previous = None
+        seen_close = False
+        reopened_after_close = False
+        close_session = ""
         for event in user_events:
+            if (
+                seen_close
+                and event.session_id != close_session
+                and event.event_name in (REOPEN_EVENTS | {"session_start"})
+            ):
+                reopened_after_close = True
+            if event.event_name in CLOSE_EVENTS:
+                seen_close = True
+                close_session = event.session_id
             if previous is not None:
                 gap = int((event.event_timestamp_micros - previous.event_timestamp_micros) / 1_000_000)
                 if gap >= SESSION_GAP_SECONDS:
@@ -185,6 +225,10 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
                         }
                     )
             previous = event
+        if seen_close:
+            users_with_close += 1
+            if reopened_after_close:
+                close_reopen_users += 1
 
     per_user: dict[str, dict] = {}
     journeys: dict[str, list[dict]] = {}
@@ -216,6 +260,8 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
                 fatigue[bucket_name]["impressions"] += 1
                 if clicked:
                     fatigue[bucket_name]["clicks"] += 1
+                else:
+                    no_click_pages += 1
             steps.append(
                 {
                     "step_index": len(steps) + 1,
@@ -241,6 +287,7 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
                 "page_views": 0,
                 "conversions": 0,
                 "engagement_msec": 0,
+                "pages": Counter(),
             },
         )
         record["events"] += len(session_events)
@@ -249,6 +296,9 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
         record["page_views"] += sum(1 for event in session_events if event.event_name in PAGE_EVENTS)
         record["conversions"] += sum(1 for event in session_events if event.event_name in CONVERT_EVENTS)
         record["engagement_msec"] += sum(event.engagement_time_msec for event in session_events)
+        for event in session_events:
+            if event.event_name in PAGE_EVENTS and event.page_path:
+                record["pages"][event.page_path] += 1
         journeys.setdefault(uid, [])
         if len(steps) > len(journeys[uid]):
             journeys[uid] = steps
@@ -266,6 +316,13 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
         "events": len(ordered),
         "click_rate": rate(clicks, page_views),
         "ignore_rate": rate(ignores, page_views),
+        "no_click_pages": no_click_pages,
+        "no_click_rate": rate(no_click_pages, page_views),
+        "close_rate": rate(closes, sessions),
+        "reopen_rate": rate(reopens, sessions),
+        "close_reopen_users": close_reopen_users,
+        "users_with_close": users_with_close,
+        "close_reopen_rate": rate(close_reopen_users, users_with_close),
         "conversion_rate_proxy": rate(conversions, sessions),
     }
 
@@ -305,7 +362,7 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
         )
     funnel.sort(key=lambda item: (-item["impressions"], item["campaign"]))
     snapshot["campaign_count"] = len(funnel)
-    snapshot["campaign_funnel"] = funnel[:20]
+    snapshot["campaign_funnel"] = _cap(funnel, campaign_limit)
     snapshot["fatigue"] = [
         {
             **fatigue[name],
@@ -313,16 +370,19 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
         }
         for name, _order in EXPOSURE_BUCKETS
     ]
-    snapshot["journey_patterns"] = [
+    pattern_rows = [
         {"path": path, "users": users}
-        for path, users in sorted(patterns.items(), key=lambda item: (-item[1], item[0]))[:20]
+        for path, users in sorted(patterns.items(), key=lambda item: (-item[1], item[0]))
     ]
+    if pattern_limit and len(pattern_rows) > pattern_limit:
+        snapshot["patterns_truncated"] = True
+    snapshot["journey_patterns"] = _cap(pattern_rows, pattern_limit)
     snapshot["session_end_proxy"] = [
         {"last_event_type": event_type, "users": users}
         for event_type, users in sorted(last_types.items(), key=lambda item: (-item[1], item[0]))
     ]
     breaks.sort(key=lambda item: -item["gap_seconds"])
-    snapshot["session_breaks"] = {"gaps": len(breaks), "examples": breaks[:8]}
+    snapshot["session_breaks"] = {"gaps": len(breaks), "examples": _cap(breaks, break_example_limit)}
 
     power = []
     for record in per_user.values():
@@ -349,11 +409,14 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
                     "power_score": score,
                     "impressions": record["events"],
                     "campaigns": record["sessions"],
+                    "pages": [path for path, _count in record["pages"].most_common(6)],
                 }
             )
+            if include_journeys:
+                power[-1]["journey_steps"] = journeys.get(record["uid"], [])[:16]
     power.sort(key=lambda item: (-item["power_score"], item["uid"]))
     snapshot["power_user_count"] = len(power)
-    snapshot["power_users"] = power[:50]
+    snapshot["power_users"] = _cap(power, power_limit)
     if power:
         featured = power[0]["uid"]
         snapshot["featured_journey"] = {
@@ -361,6 +424,7 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
             "power_score": power[0]["power_score"],
             "steps": journeys.get(featured, [])[:16],
         }
+    tail_count = recent_limit or 12
     snapshot["recent_events"] = [
         {
             "event_time": _iso(event.event_time),
@@ -368,8 +432,21 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
             "uid": event.user_pseudo_id,
             "campaign": event.page_path or event.source,
         }
-        for event in ordered[-12:]
+        for event in ordered[-tail_count:]
     ][::-1]
+    if include_tail:
+        tail_start = end - timedelta(minutes=LIVE_WINDOW_MINUTES + 5)
+        snapshot["tail"] = [
+            {
+                "t": event.event_timestamp_micros,
+                "page": event.event_name in PAGE_EVENTS,
+                "click": event.event_name in CLICK_EVENTS,
+                "ignore": event.event_name in IGNORE_EVENTS,
+                "conversion": event.event_name in CONVERT_EVENTS,
+            }
+            for event in ordered
+            if event.event_time >= tail_start
+        ]
     page_times = []
     for path, counts in page_engagement.items():
         views = int(counts["views"])
@@ -378,16 +455,19 @@ def compute_snapshot(events: list[Ga4Event]) -> dict:
             {
                 "page_path": path,
                 "views": views,
+                "engagement_msec": int(counts["engagement_msec"]),
                 "engagement_seconds": round(seconds, 1),
                 "avg_engagement_seconds": None if views == 0 else round(seconds / views, 1),
             }
         )
-    page_times.sort(key=lambda item: -item["engagement_seconds"])
-    snapshot["page_times"] = page_times[:12]
+    page_times.sort(key=lambda item: (-item["engagement_seconds"], item["page_path"]))
+    snapshot["page_times"] = _cap(page_times, page_limit)
+    counted = name_counts.most_common(event_limit) if event_limit else name_counts.most_common()
     snapshot["event_counts"] = [
         {"event_name": name, "events": count, "event_count": count}
-        for name, count in name_counts.most_common(12)
+        for name, count in counted
     ]
+    snapshot["event_names"] = sorted(name_counts)
     snapshot["window"] = {
         "event_time_min": _iso(min(event.event_time for event in ordered)),
         "event_time_max": _iso(end),

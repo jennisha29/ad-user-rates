@@ -26,9 +26,10 @@ from interaction_insights.warehouse import snapshot_from_view_rows
 
 def test_shard_uris_cover_the_backup():
     uris = shard_uris()
-    assert len(uris) == SHARD_COUNT == 50
+    assert len(uris) == SHARD_COUNT == 1000
     assert uris[0] == "gs://goods-ga4-backup_analysis/events-000000000000.parquet"
-    assert uris[-1] == "gs://goods-ga4-backup_analysis/events-000000000049.parquet"
+    assert uris[49] == "gs://goods-ga4-backup_analysis/events-000000000049.parquet"
+    assert uris[-1] == "gs://goods-ga4-backup_analysis/events-000000000999.parquet"
 
 
 def test_nested_parquet_roundtrip(tmp_path: Path):

@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import threading
 import time
 from datetime import datetime, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from interaction_insights.config import Settings
 from interaction_insights.ga4 import empty_ga4, fetch_ga4_reports
 from interaction_insights.metrics import compute_snapshot
 from interaction_insights.model import Ga4Event, make_run_id
-from interaction_insights.sources import resolve_events
+from interaction_insights.sources import default_data_dir, resolve_events
+
+EASTERN = ZoneInfo("America/New_York")
 
 CLOUD_TTL_SECONDS = 15
 
@@ -24,11 +29,15 @@ class DashboardService:
         speed: float = 80,
         max_rows: int = 1000,
         loop: bool = True,
+        data_dir: Path | None = None,
+        report_path: Path | None = None,
     ) -> None:
         self.settings = settings
         self.requested_source = source
         self.speed = speed
         self.max_rows = max_rows
+        self.data_dir = data_dir
+        self.report_path = report_path
         self.loop = loop and speed > 0
         self.mode = "local"
         self.lock = threading.Lock()
@@ -46,9 +55,12 @@ class DashboardService:
         self._banner = ""
         self._errors = {"bigquery": "", "ga4": ""}
         self._status = "idle"
+        self._report: dict | None = None
 
     def start(self) -> None:
         self._choose_initial_mode()
+        if self.mode == "report":
+            return
         if self.mode == "local":
             self._begin_local(reset_rows=True)
             self._thread = threading.Thread(target=self._loop, name="replay", daemon=True)
@@ -60,6 +72,8 @@ class DashboardService:
         self._stop.set()
 
     def snapshot(self) -> dict:
+        if self.mode == "report":
+            return self._report_snapshot()
         if self.mode == "cloud":
             if self._cloud_snapshot is None or (time.monotonic() - self._cloud_at) > CLOUD_TTL_SECONDS:
                 self.refresh_cloud(force=False)
@@ -80,6 +94,9 @@ class DashboardService:
                 else:
                     self._status = "replaying"
         elif action == "restart":
+            if self.mode == "report":
+                self._read_report_file()
+                return
             self._begin_local(reset_rows=False)
         elif action == "preview":
             self.mode = "local"
@@ -166,17 +183,17 @@ class DashboardService:
         return events > 0 or _ga4_has_rows(snap.get("ga4") or {})
 
     def _choose_initial_mode(self) -> None:
-        if self.requested_source == "local":
-            self.mode = "local"
-            return
         if self.requested_source == "cloud":
             self.mode = "cloud"
             return
-        if self.settings.bq_configured or self.settings.ga4_read_configured:
+        if self.requested_source == "auto" and (self.settings.bq_configured or self.settings.ga4_read_configured):
             self.refresh_cloud(force=True)
             if self._cloud_has_data():
                 self.mode = "cloud"
                 return
+        if self._read_report_file():
+            self.mode = "report"
+            return
         self.mode = "local"
 
     def _ensure_thread(self) -> None:
@@ -188,7 +205,11 @@ class DashboardService:
 
     def _begin_local(self, reset_rows: bool) -> None:
         if reset_rows or not self._events_all:
-            self._events_all, self._row_source = resolve_events(self.max_rows, allow_sample=True)
+            self._events_all, self._row_source = resolve_events(
+                self.max_rows,
+                allow_sample=True,
+                data_dir=self.data_dir,
+            )
         with self.lock:
             self._shown = 0
             self._run_id = make_run_id()
@@ -278,6 +299,60 @@ class DashboardService:
                 "The GA4 backup parquet is not in data/ yet, so this preview is a stand-in."
             ),
             "row_source": row_source,
+            "coverage": {"missing_event_names": []},
+        }
+
+    def _report_file(self) -> Path:
+        if self.report_path is not None:
+            return self.report_path
+        return default_data_dir() / "report.json"
+
+    def _read_report_file(self) -> dict | None:
+        path = self._report_file()
+        if not path.is_file():
+            self._report = None
+            return None
+        self._report = json.loads(path.read_text(encoding="utf-8"))
+        return self._report
+
+    def _report_snapshot(self) -> dict:
+        report = dict(self._report or self._read_report_file() or {})
+        report.pop("tail", None)
+        coverage = report.get("coverage") or {}
+        events = int(coverage.get("events") or (report.get("reaction_rates") or {}).get("events") or 0)
+        banner = _report_banner(report)
+        connections = _connections(self.settings, {"bigquery": "", "ga4": ""}, None)
+        connections["ga4"] = {
+            "configured": True,
+            "ok": True,
+            "detail": f"GA4 backup report · {events} events",
+            "property_id": self.settings.ga4_property_id,
+        }
+        if not self.settings.bq_configured:
+            connections["bigquery"]["detail"] = "Not connected. This page is the parquet report."
+        return {
+            **report,
+            "source": "ga4-parquet-report",
+            "mode": "report",
+            "status": "complete",
+            "banner": banner,
+            "warnings": [],
+            "errors": {
+                "bigquery": "" if self.settings.bq_configured else "Not configured.",
+                "ga4": "",
+            },
+            "generated_at": report.get("generated_at") or datetime.now(timezone.utc).isoformat(),
+            "connections": connections,
+            "progress": {
+                "rows_total": events,
+                "rows_done": events,
+                "speed": None,
+                "events": events,
+                "run_id": "report",
+            },
+            "ga4": empty_ga4(""),
+            "row_source": "ga4-parquet-report",
+            "coverage": coverage,
         }
 
 
@@ -321,18 +396,49 @@ def _ga4_has_rows(ga4: dict) -> bool:
 
 def _sample_banner(row_source: str, settings: Settings) -> str:
     if row_source == "ga4-parquet":
-        origin = "Reading the GA4 backup parquet from data/ (gs://goods-ga4-backup_analysis)."
+        origin = (
+            "Reading the GA4 backup parquet from data/. "
+            "This is not a live GA4 Data API call and not a BigQuery query."
+        )
     else:
         origin = (
-            "Previewing a stand-in, not gs://goods-ga4-backup_analysis. "
-            "Run scripts/download_ga4.sh to copy events-000000000000.parquet through "
-            "events-000000000049.parquet into data/."
+            "These numbers are a stand-in. They are not from GA4 and not from BigQuery. "
+            "The real export is the parquet in ~/Downloads/ga4-export "
+            "(28 Oct 2025 through 27 Oct 2026, Eastern). "
+            "On the Mac, from the ad-user-rates folder, run "
+            "python scripts/build_report.py \"$HOME/Downloads/ga4-export\" "
+            "and then start this app again."
         )
     if settings.bq_configured:
-        tail = " Use “Read BigQuery and GA4” after replay.py has loaded ga4_events."
+        tail = " “Read BigQuery and GA4” queries ga4_events after replay.py has loaded it."
     else:
-        tail = " BigQuery shows the same views after you load this export with replay.py."
+        tail = " BigQuery is not connected."
     return origin + tail
+
+
+def _report_banner(report: dict) -> str:
+    coverage = report.get("coverage") or {}
+    window = report.get("window") or {}
+    events = int(coverage.get("events") or (report.get("reaction_rates") or {}).get("events") or 0)
+    start = _eastern(coverage.get("event_time_min") or window.get("event_time_min"))
+    end = _eastern(coverage.get("event_time_max") or window.get("event_time_max"))
+    span = f"{start} through {end}" if start and end else "the exported event times"
+    missing = coverage.get("missing_event_names") or []
+    extra = ""
+    if missing:
+        extra = " Not in this export: " + ", ".join(missing) + "."
+    return (
+        f"Full count of the GA4 backup parquet: {events} events, {span}. "
+        "Counted from the local parquet files. Not a live GA4 Data API call and not a BigQuery query."
+        + extra
+    )
+
+
+def _eastern(value: str | None) -> str:
+    if not value:
+        return ""
+    moment = datetime.fromisoformat(value)
+    return moment.astimezone(EASTERN).strftime("%d %b %Y, %I:%M %p ET")
 
 
 def _cloud_banner(settings: Settings, errors: dict, run_events: int, ga4: dict) -> str:

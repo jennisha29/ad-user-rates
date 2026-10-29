@@ -160,6 +160,7 @@
       color: var(--orange);
       font-weight: 600;
     }
+    .answer { margin: 6px 0 12px; max-width: 82ch; font-size: 17px; }
     .rates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .rate {
       padding: 12px;
@@ -217,7 +218,8 @@
         <div>
           <div class="kicker">Product analytics</div>
           <h1>Interaction Insights</h1>
-          <p class="lede">How people use the product, from the GA4 backup: reaction rates, time on page, journeys, session endings, and power users.</p>
+          <p class="lede">How people use the product: reaction rates, time on page, journeys, session endings, and power users.</p>
+          <p class="sub" id="source-line">Checking where these numbers come from…</p>
         </div>
       </div>
       <div class="pills">
@@ -278,19 +280,23 @@
         <article class="q" id="q1">
           <div class="eyebrow">Question 1</div>
           <div class="section-head"><h2>How do users react?</h2></div>
+          <p class="answer" id="q1-answer"></p>
           <div class="q-grid">
             <div class="card">
               <h3>Rates</h3>
               <p class="sub" id="rate-note">Clicks, ad ignores, and conversions from the GA4 events.</p>
               <div class="rates">
                 <div class="rate"><div class="label">Click rate</div><div class="value" id="click-rate">—</div><div class="hint" id="click-count"></div></div>
-                <div class="rate"><div class="label">Ignore rate</div><div class="value" id="ignore-rate">—</div><div class="hint" id="ignore-count"></div></div>
-                <div class="rate"><div class="label">Convert proxy</div><div class="value" id="convert-rate">—</div><div class="hint" id="convert-count"></div></div>
+                <div class="rate"><div class="label">No click</div><div class="value" id="no-click-rate">—</div><div class="hint" id="no-click-count">Page views with no click before the next page</div></div>
+                <div class="rate"><div class="label">Ad ignore</div><div class="value" id="ignore-rate">—</div><div class="hint" id="ignore-count"></div></div>
+                <div class="rate"><div class="label">Close ad</div><div class="value" id="close-rate">—</div><div class="hint" id="close-count">ad_close events ÷ sessions</div></div>
+                <div class="rate"><div class="label">Close, then reopen</div><div class="value" id="reopen-rate">—</div><div class="hint" id="reopen-count">Users who close an ad and later start again</div></div>
+                <div class="rate"><div class="label">Convert</div><div class="value" id="convert-rate">—</div><div class="hint" id="convert-count"></div></div>
               </div>
             </div>
             <div class="card">
-              <h3>From Google Analytics</h3>
-              <p class="sub">Event names in this run. ad_close, app_reopen, and session_start are counted when the export contains them.</p>
+              <h3>Event names</h3>
+              <p class="sub">Counted from the same events as the rates. ad_close, app_reopen, and ad_ignore appear only when the export contains those event names.</p>
               <div id="ga-events"></div>
             </div>
           </div>
@@ -299,6 +305,7 @@
         <article class="q" id="q2">
           <div class="eyebrow">Question 2</div>
           <div class="section-head"><h2>Time on page, and the journey</h2></div>
+          <p class="answer" id="q2-answer"></p>
           <div class="q-grid">
             <div class="card">
               <h3>Session journey</h3>
@@ -317,6 +324,7 @@
         <article class="q" id="q3">
           <div class="eyebrow">Question 3</div>
           <div class="section-head"><h2>What causes sessions to end?</h2></div>
+          <p class="answer" id="q3-answer"></p>
           <div class="q-grid">
             <div class="card">
               <h3>Last event in the session</h3>
@@ -334,9 +342,10 @@
         <article class="q" id="q4">
           <div class="eyebrow">Question 4</div>
           <div class="section-head"><h2>How do power users use the product?</h2></div>
+          <p class="answer" id="q4-answer"></p>
           <div class="q-grid">
             <div class="card">
-              <h3>BigQuery heuristic</h3>
+              <h3>Power users</h3>
               <p class="sub" id="power-note">Many events, several sessions, many page views, or a conversion.</p>
               <div id="power"></div>
             </div>
@@ -355,8 +364,8 @@
         <table>
           <thead><tr><th>Question</th><th>BigQuery view</th><th>In the export</th></tr></thead>
           <tbody>
-            <tr><td>Click, ignore, convert rates</td><td>v_reaction_rates</td><td>click, ad_click, ad_ignore, purchase, sign_up</td></tr>
-            <tr><td>Close ad, reopen</td><td>v_event_counts</td><td>ad_close, app_reopen, session_start</td></tr>
+            <tr><td>Click, no click, ad ignore, convert</td><td>v_reaction_rates</td><td>click, ad_click, page views with no click, ad_ignore, purchase, sign_up</td></tr>
+            <tr><td>Close ad, then reopen</td><td>v_event_counts</td><td>ad_close, then a later session_start or app_reopen</td></tr>
             <tr><td>Time on page</td><td>v_page_time</td><td>engagement_time_msec and page path</td></tr>
             <tr><td>Journey</td><td>v_journey_patterns</td><td>First four steps in a session</td></tr>
             <tr><td>Why the session ended</td><td>v_session_end_proxy</td><td>Last event, plus 30-minute gaps</td></tr>
@@ -366,7 +375,7 @@
       </section>
     </main>
     <footer>
-      <p>Source: gs://goods-ga4-backup_analysis events-000000000000.parquet through events-000000000049.parquet. Loaded to BigQuery as ga4_events. Do not commit the service-account key or a filled-in .env.</p>
+      <p id="footer-source">A stand-in is not your GA4 property and not BigQuery. The correct full-year counts come from the parquet in ~/Downloads/ga4-export, copied from gs://goods-ga4-backup_analysis (28 Oct 2025 through 27 Oct 2026, Eastern), after python scripts/build_report.py. BigQuery table ga4_events is that backup after a load. The GA4 Data API is a separate live overlay and is not connected here.</p>
     </footer>
   </div>
   <script>
@@ -502,12 +511,14 @@
       const progress = data.progress || {};
       const ratio = progress.rows_total ? Math.min(1, progress.rows_done / progress.rows_total) : 0;
       $("progress").style.width = Math.round(ratio * 100) + "%";
-      const modeLabel = data.mode === "cloud" ? "BigQuery" : (data.row_source === "ga4-parquet" ? "GA4 backup" : "Stand-in preview");
+      const modeLabel = data.mode === "cloud" ? "BigQuery"
+        : (data.row_source === "ga4-parquet-report" ? "GA4 backup report"
+        : (data.row_source === "ga4-parquet" ? "GA4 backup slice" : "Stand-in preview"));
       $("status-line").textContent = modeLabel + " · " + (data.status || "") +
         " · " + num(progress.rows_done) + " / " + num(progress.rows_total) +
         (progress.speed ? " · " + progress.speed + " rows/s" : "");
       $("pause").textContent = data.status === "paused" ? "Resume" : "Pause";
-      $("pause").disabled = data.mode === "cloud";
+      $("pause").disabled = data.mode === "cloud" || data.mode === "report";
 
       const live = data.live_15min || {};
       $("saw").textContent = num(live.saw);
@@ -549,14 +560,38 @@
       $("ignore-rate").textContent = pct(rates.ignore_rate);
       $("convert-rate").textContent = pct(rates.conversion_rate_proxy);
       $("click-count").textContent = num(rates.clicks) + " clicks / " + num(rates.page_views || rates.impressions) + " page views";
-      $("ignore-count").textContent = num(rates.ignores) + " ad_ignore · " + num(rates.ad_closes) + " ad_close · " + num(rates.reopens) + " reopen";
+      $("no-click-rate").textContent = pct(rates.no_click_rate);
+      $("no-click-count").textContent = num(rates.no_click_pages) + " page views with no click before the next page";
+      $("ignore-count").textContent = num(rates.ignores) + " ad_ignore events / " + num(rates.page_views || rates.impressions) + " page views";
+      $("close-rate").textContent = pct(rates.close_rate);
+      $("close-count").textContent = num(rates.ad_closes) + " ad_close events / " + num(rates.sessions) + " sessions";
+      $("reopen-rate").textContent = pct(rates.close_reopen_rate);
+      $("reopen-count").textContent = num(rates.close_reopen_users) + " users reopened after a close · " + num(rates.reopens) + " app_reopen events";
       $("convert-count").textContent = num(rates.conversions_proxy) + " conversions / " + num(rates.sessions) + " sessions";
+      const sourceLine = $("source-line");
+      if (sourceLine) {
+        if (data.row_source === "ga4-parquet-report") {
+          sourceLine.textContent = "Full count of the GA4 backup parquet. Not a live GA4 report and not a BigQuery query.";
+        } else if (data.row_source === "ga4-parquet") {
+          sourceLine.textContent = "A slice of the GA4 backup parquet. Not a live GA4 report and not a BigQuery query.";
+        } else if (data.mode === "cloud") {
+          sourceLine.textContent = "BigQuery table ga4_events, loaded from the GA4 backup. The Google Analytics pill is the Data API overlay.";
+        } else {
+          sourceLine.textContent = "Stand-in numbers. Not your GA4 property and not BigQuery. The export on your Mac is 28 Oct 2025 through 27 Oct 2026.";
+        }
+      }
+      const missing = (data.coverage && data.coverage.missing_event_names) || [];
+      let rateNote = "Click ÷ page views. No click = a page view with no click before the next page. Ad ignore = ad_ignore ÷ page views. Close ad = ad_close ÷ sessions. Close then reopen = users who close an ad and later start another session. Convert = conversions ÷ sessions.";
+      if (missing.length) {
+        rateNote += " Not in this export: " + missing.join(", ") + ". A zero on those names means the event was not collected.";
+      }
+      $("rate-note").textContent = rateNote;
       if (data.definitions) {
-        $("rate-note").textContent = data.definitions.conversion_rate || data.definitions.click_rate;
         $("power-note").textContent = data.definitions.power_user + " Score: " + data.definitions.power_score;
-        $("break-note").textContent = data.definitions.session_break;
+        $("break-note").textContent = data.definitions.session_break + " GA4 does not send session_end; the last event is the cause we can see.";
         if ($("page-note") && data.definitions.time_on_page) $("page-note").textContent = data.definitions.time_on_page;
       }
+      fillAnswers(data);
 
       const patterns = $("patterns");
       clear(patterns);
@@ -652,7 +687,8 @@
           h("th", { class: "num", text: "Sessions" }),
           h("th", { class: "num", text: "Clicks" }),
           h("th", { class: "num", text: "Pages" }),
-          h("th", { class: "num", text: "Score" })
+          h("th", { class: "num", text: "Score" }),
+          h("th", { text: "Pages visited" })
         ])]));
         const body = h("tbody");
         power.slice(0, 8).forEach((row) => {
@@ -662,7 +698,8 @@
             h("td", { class: "num", text: num(row.sessions != null ? row.sessions : row.campaigns) }),
             h("td", { class: "num", text: num(row.clicks) }),
             h("td", { class: "num", text: num(row.page_views != null ? row.page_views : row.conversions) }),
-            h("td", { class: "num", text: num(row.power_score) })
+            h("td", { class: "num", text: num(row.power_score) }),
+            h("td", { text: (row.pages || []).join(", ") })
           ]));
         });
         table.append(body);
@@ -704,6 +741,53 @@
           ]));
         });
       }
+    }
+
+    function fillAnswers(data) {
+      const rates = data.reaction_rates || {};
+      const missing = new Set((data.coverage && data.coverage.missing_event_names) || []);
+      const q1 = [
+        pct(rates.click_rate) + " of page views are followed by a click (" + num(rates.clicks) + " clicks, " + num(rates.page_views) + " page views).",
+        pct(rates.no_click_rate) + " get no click before the next page.",
+      ];
+      if (missing.has("ad_ignore")) {
+        q1.push("ad_ignore is not in this export, so there is no measured ad-ignore rate.");
+      } else {
+        q1.push("Ad ignore is " + pct(rates.ignore_rate) + " of page views (" + num(rates.ignores) + " events).");
+      }
+      if (missing.has("ad_close")) {
+        q1.push("ad_close is not in this export, so close-ad and close-then-reopen are not measured.");
+      } else {
+        q1.push("Close ad is " + pct(rates.close_rate) + " (" + num(rates.ad_closes) + " closes / " + num(rates.sessions) + " sessions).");
+        q1.push(num(rates.close_reopen_users) + " of " + num(rates.users_with_close) + " users who closed an ad later started another session (" + pct(rates.close_reopen_rate) + ").");
+      }
+      q1.push("Convert is " + pct(rates.conversion_rate_proxy) + " of sessions.");
+      $("q1-answer").textContent = q1.join(" ");
+
+      const pageRows = data.page_times || [];
+      const paths = data.journey_patterns || [];
+      const timeBit = pageRows.length
+        ? "The most total engagement is on " + pageRows[0].page_path + ": " + secs(pageRows[0].avg_engagement_seconds) + " average across " + num(pageRows[0].views) + " views."
+        : "No page-level engagement time in this count.";
+      const pathBit = paths.length
+        ? " The most common opening is " + paths[0].path + " (" + num(paths[0].users) + " sessions)."
+        : "";
+      $("q2-answer").textContent = timeBit + pathBit;
+
+      const ends = data.session_end_proxy || [];
+      const gaps = (data.session_breaks && data.session_breaks.gaps) || 0;
+      const endBit = ends.length
+        ? "Sessions most often end on " + ends[0].last_event_type + " (" + num(ends[0].users) + " sessions). There is no session_end event; this is the last event recorded."
+        : "No sessions in this count.";
+      $("q3-answer").textContent = endBit + " " + num(gaps) + " gaps of 30 minutes or longer separate one person's events.";
+
+      const power = data.power_users || [];
+      const lead = power[0];
+      const pages = lead && lead.pages && lead.pages.length ? lead.pages.join(", ") : "no page path";
+      $("q4-answer").textContent = num(data.power_user_count) + " users qualify."
+        + (lead
+          ? " The highest score visited " + pages + " across " + num(lead.sessions) + " sessions and " + num(lead.page_views) + " page views."
+          : " Nobody in this count has 15+ events, 3+ sessions, 8+ page views, or a conversion.");
     }
 
     async function control(action) {

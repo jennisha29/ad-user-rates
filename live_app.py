@@ -76,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--speed", type=float, default=80, help="Local preview rows per second.")
     parser.add_argument("--max-rows", type=int, default=1000, help="Local preview row cap.")
     parser.add_argument("--source", choices=("auto", "cloud", "local"), default="auto")
+    parser.add_argument("--data-dir", default="", help="Folder of events-*.parquet shards.")
+    parser.add_argument("--report", default="", help="Path to data/report.json from scripts/build_report.py.")
     parser.add_argument("--no-loop", action="store_true")
     args = parser.parse_args(argv)
     settings = load_settings()
@@ -85,6 +87,8 @@ def main(argv: list[str] | None = None) -> int:
         speed=args.speed,
         max_rows=args.max_rows,
         loop=not args.no_loop,
+        data_dir=Path(args.data_dir) if args.data_dir else None,
+        report_path=Path(args.report) if args.report else None,
     )
     app.start()
     server = AppServer((args.host, args.port), app)

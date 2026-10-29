@@ -58,6 +58,13 @@ def test_reaction_rates_journey_fatigue_and_power():
     assert rates["sessions"] == 3
     assert rates["click_rate"] == 0.2
     assert rates["ignore_rate"] == 0.2
+    assert rates["no_click_pages"] == 4
+    assert rates["no_click_rate"] == 0.8
+    assert rates["close_rate"] == 1 / 3
+    assert rates["reopen_rate"] == 1 / 3
+    assert rates["close_reopen_users"] == 1
+    assert rates["users_with_close"] == 1
+    assert rates["close_reopen_rate"] == 1
     assert rates["conversion_rate_proxy"] == 1 / 3
 
     fatigue = {item["exposure_bucket"]: item for item in snapshot["fatigue"]}
@@ -77,6 +84,7 @@ def test_reaction_rates_journey_fatigue_and_power():
     assert by_uid["A"]["events"] == 11
     assert by_uid["A"]["sessions"] == 2
     assert by_uid["A"]["power_score"] == 11 + 10 * 2 + 20
+    assert set(by_uid["A"]["pages"]) == {"/home", "/pricing", "/checkout"}
     assert snapshot["featured_journey"]["uid"] == "A"
     assert snapshot["featured_journey"]["steps"][0]["seconds_since_prev"] is None
 

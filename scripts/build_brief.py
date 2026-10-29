@@ -25,19 +25,22 @@ def main() -> None:
         pdf,
         "Shareable brief. The source is the GA4 backup in "
         "gs://goods-ga4-backup_analysis, shards events-000000000000.parquet "
-        "through events-000000000049.parquet. Reaction rates, page time, "
-        "journeys, session gaps, and power users are read from BigQuery "
-        "after those shards are loaded.",
+        "through events-000000000999.parquet (1000 files, 28 Oct 2025 through "
+        "27 Oct 2026 Eastern). scripts/build_report.py counts that parquet. "
+        "The dashboard is not a live GA4 Data API call and not a BigQuery query "
+        "unless those are configured.",
     )
     pdf.ln(3)
     _write(pdf, "Four questions", size=13, style="B", height=8)
     blocks = [
         (
             "1. How do users react?",
-            "BigQuery view v_reaction_rates. Click rate is click and ad_click "
-            "divided by page views. Ignore rate is ad_ignore divided by page views. "
-            "Conversion rate is purchase, sign_up, subscribe, and ad_free_subscribe "
-            "divided by sessions. ad_close and app_reopen are counted on their own.",
+            "Click rate is click and ad_click divided by page views. No-click rate "
+            "is page views with no click before the next page. Ad ignore is "
+            "ad_ignore divided by page views, and is zero when that event is absent. "
+            "Close ad is ad_close divided by sessions. Close then reopen is users "
+            "who close an ad and later start another session. Conversion rate is "
+            "purchase, sign_up, subscribe, and ad_free_subscribe divided by sessions.",
         ),
         (
             "2. Time on a page, and the journey",

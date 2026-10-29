@@ -14,9 +14,9 @@ If that command is missing, install Python 3.11 from [python.org](https://www.py
 
 ```bash
 cd ~
-git clone https://github.com/YOUR_GITHUB_USERNAME/interaction-insights.git
-cd interaction-insights
-python3.11 -m venv .venv
+git clone https://github.com/jennisha29/ad-user-rates.git
+cd ad-user-rates
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -28,14 +28,21 @@ chmod +x scripts/download_ga4.sh
 ./scripts/download_ga4.sh
 ```
 
-The script copies these objects into `data/`:
+The backup already on this Mac is `$HOME/Downloads/ga4-export`: `events-000000000000.parquet` through `events-000000000999.parquet` (1000 files, 4.59 GB). Event time runs from 28 Oct 2025, 12:00 AM Eastern through 27 Oct 2026, 11:59 PM Eastern.
 
-- `gs://goods-ga4-backup_analysis/events-000000000000.parquet`
-- through `gs://goods-ga4-backup_analysis/events-000000000049.parquet`
+Count that folder. Do not link the shards from the home directory again.
 
-That is 50 shards. The bucket is private. Install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/install), then `gcloud auth login`, and rerun the script. The files stay on disk (`data/*` is gitignored).
+```bash
+cd ~/ad-user-rates
+source .venv/bin/activate
+python scripts/build_report.py "$HOME/Downloads/ga4-export"
+```
 
-You can open the dashboard before this copy. It previews a labeled stand-in until the shards are present. The stand-in is not the export.
+That writes `data/report.json`. The dashboard then serves those counts. They come from the parquet files, not from a live GA4 Data API call and not from BigQuery.
+
+`scripts/download_ga4.sh` copies every `events-*.parquet` object into `data/` if you need the shards in the repo folder. The bucket is private. Install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/install), then `gcloud auth login`. The files stay on disk (`data/*` is gitignored).
+
+You can open the dashboard before the report exists. It shows a labeled stand-in. The stand-in is not the export.
 
 ## 4. Configure `.env`
 

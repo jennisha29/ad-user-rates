@@ -1,8 +1,8 @@
 """Read GA4 event parquet shards from the goods-ga4-backup_analysis export.
 
 The files are the standard GA4 BigQuery export shape (nested event_params) or a
-flat extract with the same column names. Shards are named events-000000000000.parquet
-through events-000000000049.parquet.
+flat extract with the same column names. The backup in this bucket is
+events-000000000000.parquet through events-000000000999.parquet (1000 shards).
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 from interaction_insights.model import Ga4Event
 
-SHARD_COUNT = 50
+SHARD_COUNT = 1000
 BUCKET = "goods-ga4-backup_analysis"
 
 
@@ -32,20 +32,27 @@ def discover_parquet(data_dir: Path) -> list[Path]:
 
 
 def read_parquet(paths: list[Path], max_rows: int | None = None) -> list[Ga4Event]:
+    events: list[Ga4Event] = []
+    for event in iter_events(paths):
+        events.append(event)
+        if max_rows is not None and len(events) >= max_rows:
+            break
+    return _finalize(events)
+
+
+def iter_events(paths: list[Path]):
+    """Yield flattened events. Session ids that are blank are left blank."""
     import pyarrow.parquet as pq
 
-    events: list[Ga4Event] = []
+    seen = 0
     for path in paths:
         parquet = pq.ParquetFile(path)
         for batch in parquet.iter_batches(batch_size=8192):
             for index, row in enumerate(batch.to_pylist()):
-                event = normalize_row(row, fallback_id=f"{path.name}:{len(events) + index}")
-                if event is None:
-                    continue
-                events.append(event)
-                if max_rows is not None and len(events) >= max_rows:
-                    return _finalize(events)
-    return _finalize(events)
+                seen += 1
+                event = normalize_row(row, fallback_id=f"{path.name}:{seen}")
+                if event is not None:
+                    yield event
 
 
 def normalize_row(row: dict, fallback_id: str) -> Ga4Event | None:

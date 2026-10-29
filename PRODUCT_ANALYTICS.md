@@ -1,6 +1,6 @@
 # Product questions
 
-Every number below is computed from the GA4 backup (`gs://goods-ga4-backup_analysis`, shards `events-000000000000.parquet` through `events-000000000049.parquet`) after it is flattened into `ga4_events`.
+Every number below is defined on the GA4 backup (`gs://goods-ga4-backup_analysis`, shards `events-000000000000.parquet` through `events-000000000999.parquet`). `scripts/build_report.py` counts the parquet directly. BigQuery view `ga4_events` is the same backup after a load. A zero for `ad_ignore`, `ad_close`, or `app_reopen` means that event name is absent from the export.
 
 Each view reads `v_events`, which is the latest `replay_run_id` only. Re-running `replay.py` does not require a delete.
 

@@ -28,7 +28,10 @@ EXPOSURE_BUCKETS = (
 
 DEFINITIONS = {
     "click_rate": "Clicks (click and ad_click) divided by page views.",
+    "no_click_rate": "Page views with no click before the next page view, divided by page views.",
     "ignore_rate": "ad_ignore events divided by page views. Zero when the export has no ad_ignore events.",
+    "close_rate": "ad_close events divided by sessions. Zero when the export has no ad_close events.",
+    "close_reopen_rate": "Users who close an ad and later start a different session, divided by users who closed an ad.",
     "conversion_rate": "purchase, sign_up, subscribe, and ad_free_subscribe events divided by sessions.",
     "power_user": (
         f"{MANY_EVENTS} or more events, or {MANY_SESSIONS} or more sessions, "
